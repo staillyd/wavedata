@@ -233,12 +233,12 @@ def get_lidar_point_cloud(img_idx, calib_dir, velo_dir,
     """
 
     # Read calibration info
-    frame_calib = calib_utils.read_calibration(calib_dir, img_idx)
-    x, y, z, i = calib_utils.read_lidar(velo_dir=velo_dir, img_idx=img_idx)
+    frame_calib = calib_utils.read_calibration(calib_dir, img_idx)#读取calib文件信息并保存到对象中
+    x, y, z, i = calib_utils.read_lidar(velo_dir=velo_dir, img_idx=img_idx)#从文件读取点云数据的x,y,z,和密度
 
     # Calculate the point cloud
-    pts = np.vstack((x, y, z)).T
-    pts = calib_utils.lidar_to_cam_frame(pts, frame_calib)
+    pts = np.vstack((x, y, z)).T#点云位置信息
+    pts = calib_utils.lidar_to_cam_frame(pts, frame_calib)#点云投射到相机坐标
 
     # The given image is assumed to be a 2D image
     if not im_size:
@@ -246,18 +246,18 @@ def get_lidar_point_cloud(img_idx, calib_dir, velo_dir,
         return point_cloud
 
     else:
-        # Only keep points in front of camera (positive z)
+        # Only keep points in front of camera (positive z) 相机坐标是z轴，已经投影到相机坐标了
         pts = pts[pts[:, 2] > 0]
         point_cloud = pts.T
 
-        # Project to image frame
+        # Project to image frame #投影到像素坐标
         point_in_im = calib_utils.project_to_image(point_cloud, p=frame_calib.p2).T
 
-        # Filter based on the given image size
+        # Filter based on the given image size 保留在图片范围的点云,坐标在相机坐标系下
         image_filter = (point_in_im[:, 0] > 0) & \
                        (point_in_im[:, 0] < im_size[0]) & \
                        (point_in_im[:, 1] > 0) & \
-                       (point_in_im[:, 1] < im_size[1])
+                       (point_in_im[:, 1] < im_size[1])#索引值
 
     if not min_intensity:
         return pts[image_filter].T
@@ -284,7 +284,7 @@ def get_road_plane(img_idx, planes_dir):
         input_file.close()
 
     # Plane coefficients stored in 4th row
-    lines = lines[3].split()
+    lines = lines[3].split()#plane文件的最后一行
 
     # Convert str to float
     lines = [float(i) for i in lines]
@@ -476,14 +476,14 @@ def get_point_filter(point_cloud, extents, ground_plane=None, offset_dist=2.0):
         ones_col = np.ones(point_cloud.shape[1])
         padded_points = np.vstack([point_cloud, ones_col])
 
-        offset_plane = ground_plane + [0, 0, 0, -offset_dist]
+        offset_plane = ground_plane + [0, 0, 0, -offset_dist]#[水平面法向量(x,y,z),距离水平面的高度-offset_dist]
 
         # Create plane filter
         dot_prod = np.dot(offset_plane, padded_points)
-        plane_filter = dot_prod < 0
+        plane_filter = dot_prod < 0#见说明，保留在offset_dist以下的点云
 
         # Combine the two filters
-        point_filter = np.logical_and(extents_filter, plane_filter)
+        point_filter = np.logical_and(extents_filter, plane_filter)#返回filter
     else:
         # Only use the extents for filtering
         point_filter = extents_filter

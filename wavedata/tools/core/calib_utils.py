@@ -72,8 +72,8 @@ def read_calibration(calib_dir, img_idx):
                              Contains a frame's full calibration data.
 
     """
-    frame_calibration_info = FrameCalibrationData()
-
+    frame_calibration_info = FrameCalibrationData()#新建对象 用于坐标变换
+    #读取和img对应的calib文件，坐标转换信息
     data_file = open(calib_dir + "/%06d.txt" % img_idx, 'r')
     data_reader = csv.reader(data_file, delimiter=' ')
     data = []
@@ -83,11 +83,11 @@ def read_calibration(calib_dir, img_idx):
 
     data_file.close()
 
-    p_all = []
+    p_all = []#保存cailib文件里的P0,P1,P2,P3信息
 
     for i in range(4):
         p = data[i]
-        p = p[1:]
+        p = p[1:]#去除第一项 描述项
         p = [float(p[i]) for i in range(len(p))]
         p = np.reshape(p, (3, 4))
         p_all.append(p)
@@ -289,7 +289,7 @@ def project_to_image(point_cloud, p):
 
     pts_2d = np.dot(p, np.append(point_cloud,
                                  np.ones((1, point_cloud.shape[1])),
-                                 axis=0))
+                                 axis=0))#(3,4)*(4,?)
 
     pts_2d[0, :] = pts_2d[0, :] / pts_2d[2, :]
     pts_2d[1, :] = pts_2d[1, :] / pts_2d[2, :]
@@ -368,7 +368,7 @@ def read_lidar(velo_dir, img_idx):
         return []
 
 
-def lidar_to_cam_frame(xyz_lidar, frame_calib):
+def lidar_to_cam_frame(xyz_lidar, frame_calib):#投影到相机坐标
     """Transforms the pointclouds to the camera 0 frame.
 
         Keyword Arguments:
@@ -386,13 +386,13 @@ def lidar_to_cam_frame(xyz_lidar, frame_calib):
 
         """
 
-    # Pad the r0_rect matrix to a 4x4
+    # Pad the r0_rect matrix(3,3) to a 4x4
     r0_rect_mat = frame_calib.r0_rect
     r0_rect_mat = np.pad(r0_rect_mat, ((0, 1), (0, 1)),
                          'constant', constant_values=0)
     r0_rect_mat[3, 3] = 1
 
-    # Pad the tr_vel_to_cam matrix to a 4x4
+    # Pad the tr_vel_to_cam matrix(3,4) to a 4x4
     tf_mat = frame_calib.tr_velodyne_to_cam
     tf_mat = np.pad(tf_mat, ((0, 1), (0, 0)),
                     'constant', constant_values=0)
@@ -400,10 +400,10 @@ def lidar_to_cam_frame(xyz_lidar, frame_calib):
 
     # Pad the pointcloud with 1's for the transformation matrix multiplication
     one_pad = np.ones(xyz_lidar.shape[0]).reshape(-1, 1)
-    xyz_lidar = np.append(xyz_lidar, one_pad, axis=1)
+    xyz_lidar = np.append(xyz_lidar, one_pad, axis=1)#(?,3)->(?,4)
 
-    # p_cam = P2 * R0_rect * Tr_velo_to_cam * p_velo
-    rectified = np.dot(r0_rect_mat, tf_mat)
+    # p_cam = P2 * R0_rect * Tr_velo_to_cam * p_velo 
+    rectified = np.dot(r0_rect_mat, tf_mat)#P2在project_to_image()里
     ret_xyz = np.dot(rectified, xyz_lidar.T)
 
     # Change to N x 3 array for consistency.

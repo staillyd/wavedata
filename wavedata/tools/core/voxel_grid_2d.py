@@ -46,7 +46,7 @@ class VoxelGrid2D(object):
         projecting it down into a flat plane, and stores the maximum
         point height, and number of points corresponding to the voxel
 
-        :param pts: Point cloud as N x [x, y, z]
+        :param pts: Point cloud as N x [x, y, z] 在相机坐标系下可以投影到图片里，且在地面上方[plan_offset_dist,offset_dist]的点云
         :param voxel_size: Quantization size for the grid
         :param extents: Optional, specifies the full extents of the point cloud.
                         Used for creating same sized voxel grids.
@@ -63,17 +63,19 @@ class VoxelGrid2D(object):
 
         self.voxel_size = voxel_size
 
-        # Discretize voxel coordinates to given quantization size
+        # Discretize voxel coordinates to given quantization size 
+        # 将点云坐标离散化为体素voxel，相当于将空间划分为voxel_size大小的网格，将在网格里的点云坐标统一
+        # 注意是int型数据，后面会进行去重，这些重复的就是因为将floor变成int，进行量化
         discrete_pts = np.floor(pts / voxel_size).astype(np.int32)
 
-        # Use Lex Sort, sort by x, then z, then y (
+        # Use Lex Sort, sort by x, then z, then y (返回排序后的索引
         x_col = discrete_pts[:, 0]
         y_col = discrete_pts[:, 1]
         z_col = discrete_pts[:, 2]
-        sorted_order = np.lexsort((y_col, z_col, x_col))
+        sorted_order = np.lexsort((y_col, z_col, x_col))#从x_col从小到大排序，若遇到相同的x_col值则比较y_col...
 
         # Save original points in sorted order
-        self.points = pts[sorted_order]
+        self.points = pts[sorted_order]#相机坐标系下可以投影到图片里，且在地面上方[plan_offset_dist,offset_dist]从小到大排序的点云
 
         # Save discrete points in sorted order
         discrete_pts = discrete_pts[sorted_order]
@@ -83,12 +85,15 @@ class VoxelGrid2D(object):
         discrete_pts_2d[:, 1] = 0
 
         # Format the array to c-contiguous array for unique function
+        # ascontiguousarray将变量所占内存变成连续的，可加快运算
+        # view:在同一块内存中以不同编码方式读取,https://www.geeksforgeeks.org/numpy-ndarray-view-in-python/
+        # discrete_pts_2d:int32  
         contiguous_array = np.ascontiguousarray(discrete_pts_2d).view(
             np.dtype((np.void, discrete_pts_2d.dtype.itemsize *
-                      discrete_pts_2d.shape[1])))
+                      discrete_pts_2d.shape[1])))#np.dtype(np.void,12)12位,原一个int32所占位数*shape[1]，为的是下面一步去重
 
         # The new coordinates are the discretized array with its unique indexes
-        _, unique_indices = np.unique(contiguous_array, return_index=True)
+        _, unique_indices = np.unique(contiguous_array, return_index=True)#去除重复的点云
 
         # Sort unique indices to preserve order
         unique_indices.sort()
@@ -99,7 +104,7 @@ class VoxelGrid2D(object):
         num_points_in_voxel = np.diff(unique_indices)
         num_points_in_voxel = np.append(num_points_in_voxel,
                                         discrete_pts_2d.shape[0] -
-                                        unique_indices[-1])
+                                        unique_indices[-1])#每个去重点 重复的个数
 
         if ground_plane is None:
             # Use first point in voxel as highest point
@@ -107,7 +112,7 @@ class VoxelGrid2D(object):
         else:
             # Ground plane provided
             height_in_voxel = geometry_utils.dist_to_plane(
-                ground_plane, self.points[unique_indices])
+                ground_plane, self.points[unique_indices])#每个voxel距离plane(x0,y0,z0)的距离,见说明.md
 
         # Set the height and number of points for each voxel
         self.heights = height_in_voxel
@@ -126,10 +131,10 @@ class VoxelGrid2D(object):
             self.max_voxel_coord = \
                 np.ceil((extents_transpose[1] / voxel_size) - 1)
 
-            self.min_voxel_coord[1] = 0
-            self.max_voxel_coord[1] = 0
+            self.min_voxel_coord[1] = 0#因为投影到2D plane里了
+            self.max_voxel_coord[1] = 0#因为投影到2D plane里了
 
-            # Check that points are bounded by new extents
+            # Check that points are bounded by new extents 如果voxel点云不在范围里，则报错。
             if not (self.min_voxel_coord <= np.amin(voxel_coords,
                                                     axis=0)).all():
                 raise ValueError("Extents are smaller than min_voxel_coord")
@@ -144,12 +149,12 @@ class VoxelGrid2D(object):
 
         # Get the voxel grid dimensions
         self.num_divisions = ((self.max_voxel_coord - self.min_voxel_coord)
-                              + 1).astype(np.int32)
+                              + 1).astype(np.int32)#划分的网格个数
 
-        # Bring the min voxel to the origin
+        # Bring the min voxel to the origin 体素坐标在体素网格系的索引
         self.voxel_indices = (voxel_coords - self.min_voxel_coord).astype(int)
 
-        if create_leaf_layout:
+        if create_leaf_layout:#创建体素网格系，网格内包含点云则用0表示，不包含点云则用-1表示
             # Create Voxel Object with -1 as empty/occluded, 0 as occupied
             self.leaf_layout_2d = self.VOXEL_EMPTY * \
                 np.ones(self.num_divisions.astype(int))
@@ -178,8 +183,8 @@ class VoxelGrid2D(object):
         min_voxel_coord_2d = self.min_voxel_coord[[0, 2]]
 
         # Truncate index (same as np.floor for positive values) and clip
-        # to valid voxel index range
-        indices = np.int32(map_index / self.voxel_size) - min_voxel_coord_2d
+        # to valid voxel index range  超出的部分强置为边界部分
+        indices = np.int32(map_index / self.voxel_size) - min_voxel_coord_2d#将map_index体素坐标在体素网格系leaf_layout_2d的索引
         indices[:, 0] = np.clip(indices[:, 0], 0, num_divisions_2d[0])
         indices[:, 1] = np.clip(indices[:, 1], 0, num_divisions_2d[1])
 

@@ -41,7 +41,7 @@ def two_d_iou(box, boxes):
 
         iou[non_empty] = intersection_area / union_area
 
-    return iou.round(3)
+    return iou.round(3)#返回IOU，其中没交集的IOU为0
 
 
 def three_d_iou(box, boxes):

@@ -27,7 +27,7 @@ class IntegralImage2D(object):
             raise ValueError('Not a 2D image for integral image: input dim {}'
                              .format(img.ndim))
 
-        integral_image = np.cumsum(np.cumsum(img, 0), 1)
+        integral_image = np.cumsum(np.cumsum(img, 0), 1)#原点index(0,0)当左上角 img index当右下角的矩形框里元素和
 
         # pad integral image with 0s on one side of each dimension required
         # so that when accessing coordinate n-1, we get a valid value of 0
@@ -52,7 +52,7 @@ class IntegralImage2D(object):
                         List consists of values contained inside box specified
                         by coordinates from boxes. Empty on failure.
         """
-        boxes = np.asarray(boxes)
+        boxes = np.asarray(boxes)#(4,?):?_所有anchor、4_当前anchor左上右下体素坐标 注意体素坐标范围由area_extents/voxel_size确定
 
         # check size
         if boxes.shape[0] != 4:
@@ -66,10 +66,10 @@ class IntegralImage2D(object):
         if boxes.dtype != np.uint32:
             raise TypeError('boxes must be type of np.uint32')
 
-        # Clip all the maximum coordinates to the voxelgrid size
+        # Clip夹 all the maximum coordinates to the voxelgrid size
         # Note: The integral image gets zero padded.
         max_extents = np.array([self._x_size, self._z_size,
-                                self._x_size, self._z_size]) - 1
+                                self._x_size, self._z_size]) - 1#积分体素网的size
 
         # Make sure all boxes are within the maximum extents
         boxes = np.minimum(boxes, max_extents.reshape(4, -1)).astype(np.uint32)
@@ -82,6 +82,6 @@ class IntegralImage2D(object):
         output = self._integral_image[x2, z2] + \
             self._integral_image[x1, z1] - \
             self._integral_image[x2, z1] - \
-            self._integral_image[x1, z2]
+            self._integral_image[x1, z2]#体素网的积分图 原点index(0,0)当左上角 img index当右下角的矩形框里元素和
 
-        return output
+        return output#体素网在box里元素的和，即在box里体素点个数
