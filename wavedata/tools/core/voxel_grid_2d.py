@@ -82,7 +82,7 @@ class VoxelGrid2D(object):
 
         # Project all points to a 2D plane
         discrete_pts_2d = discrete_pts.copy()
-        discrete_pts_2d[:, 1] = 0
+        discrete_pts_2d[:, 1] = 0#俯视图
 
         # Format the array to c-contiguous array for unique function
         # ascontiguousarray将变量所占内存变成连续的，可加快运算
