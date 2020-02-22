@@ -1,4 +1,4 @@
-forked from github.com:kujason/wavedata.git
+forked from git@github.com:kujason/wavedata.git
 
 # Wavedata
 
