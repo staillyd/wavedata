@@ -112,7 +112,7 @@ class VoxelGrid2D(object):
         else:
             # Ground plane provided
             height_in_voxel = geometry_utils.dist_to_plane(
-                ground_plane, self.points[unique_indices])#每个voxel距离plane(x0,y0,z0)的距离,见说明.md
+                ground_plane, self.points[unique_indices])#每个voxel距离plane的距离,见说明.md
 
         # Set the height and number of points for each voxel
         self.heights = height_in_voxel
